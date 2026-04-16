@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>交易日誌 — Trade Journal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0d0f0e;
+  --bg2: #141716;
+  --bg3: #1a1d1b;
+  --surface: #1f2320;
+  --surface2: #252926;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.12);
+  --text: #e8ede9;
+  --text2: #8a9490;
+  --text3: #5a6460;
+  --accent: #4ade80;
+  --accent-dim: rgba(74,222,128,0.12);
+  --accent-border: rgba(74,222,128,0.3);
+  --red: #f87171;
+  --red-dim: rgba(248,113,113,0.12);
+  --gold: #fbbf24;
+  --gold-dim: rgba(251,191,36,0.12);
+  --blue: #60a5fa;
+  --blue-dim: rgba(96,165,250,0.1);
+  --radius: 10px;
+  --radius-lg: 16px;
+  --mono: 'Space Mono', monospace;
+  --sans: 'Noto Sans TC', sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* HEADER */
+.header {
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  position: sticky;
+  top: 0;
+  background: rgba(13,15,14,0.92);
+  backdrop-filter: blur(12px);
+  z-index: 50;
+}
+.logo {
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.logo-dot { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.header-right { display: flex; align-items: center; gap: 8px; }
+.sync-status { font-family: var(--mono); font-size: 11px; color: var(--text3); }
+.sync-status.syncing { color: var(--gold); }
+.sync-status.ok { color: var(--accent); }
+.sync-status.err { color: var(--red); }
+
+/* LAYOUT */
+.container { max-width: 1100px; margin: 0 auto; padding: 28px 24px; }
+
+/* STATS */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 28px;
+}
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+}
+.stat-label { font-size: 11px; font-family: var(--mono); color: var(--text3); letter-spacing: 0.08em; margin-bottom: 8px; }
+.stat-value { font-family: var(--mono); font-size: 24px; font-weight: 700; }
+.stat-sub { font-size: 11px; color: var(--text3); margin-top: 4px; }
+.pos { color: var(--accent); }
+.neg { color: var(--red); }
+.neu { color: var(--text2); }
+
+/* TABS */
+.tabs-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.tabs { display: flex; gap: 2px; background: var(--surface); border-radius: var(--radius); padding: 3px; }
+.tab {
+  padding: 6px 16px;
+  border: none;
+  background: none;
+  color: var(--text2);
+  font-family: var(--sans);
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.15s;
+}
+.tab.active { background: var(--bg3); color: var(--text); }
+.tab:hover:not(.active) { color: var(--text); }
+
+/* BUTTON */
+.btn {
+  padding: 8px 18px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border2);
+  background: var(--surface2);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn:hover { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent); }
+.btn-accent {
+  background: var(--accent);
+  color: #0d0f0e;
+  border-color: var(--accent);
+  font-weight: 500;
+}
+.btn-accent:hover { background: #6ee79a; border-color: #6ee79a; color: #0d0f0e; }
+.btn-sm { padding: 4px 12px; font-size: 12px; }
+.btn-ghost { background: none; border-color: transparent; }
+.btn-ghost:hover { border-color: var(--border2); background: var(--surface); color: var(--text); }
+.btn-danger { color: var(--red); }
+.btn-danger:hover { background: var(--red-dim); border-color: rgba(248,113,113,0.3); color: var(--red); }
+
+/* TABLE */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th {
+  text-align: left;
+  padding: 10px 14px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  color: var(--text3);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+td {
+  padding: 13px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  vertical-align: middle;
+}
+tr:hover td { background: var(--surface); }
+.ticker-cell { font-family: var(--mono); font-weight: 700; font-size: 14px; }
+.name-cell { color: var(--text2); font-size: 12px; margin-top: 2px; }
+
+/* BADGE */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-family: var(--mono);
+  letter-spacing: 0.05em;
+  font-weight: 400;
+}
+.badge-hold { background: rgba(74,222,128,0.1); color: var(--accent); border: 1px solid rgba(74,222,128,0.25); }
+.badge-sold { background: rgba(90,100,96,0.3); color: var(--text2); border: 1px solid var(--border); }
+.badge-watch { background: rgba(96,165,250,0.1); color: var(--blue); border: 1px solid rgba(96,165,250,0.25); }
+.tag { display: inline-block; padding: 1px 7px; border-radius: 4px; background: var(--surface2); border: 1px solid var(--border); color: var(--text3); font-size: 11px; margin: 1px 2px; }
+
+/* EMPTY STATE */
+.empty-state {
+  text-align: center;
+  padding: 64px 20px;
+  color: var(--text3);
+}
+.empty-icon {
+  font-family: var(--mono);
+  font-size: 32px;
+  margin-bottom: 12px;
+  color: var(--border2);
+}
+.empty-state p { font-size: 13px; }
+
+/* MODAL */
+.overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(4px);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.overlay.open { display: flex; }
+.modal {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  width: 100%;
+  max-width: 580px;
+  max-height: 88vh;
+  overflow-y: auto;
+}
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-title { font-family: var(--mono); font-size: 13px; letter-spacing: 0.08em; color: var(--accent); }
+.close-btn { background: none; border: none; color: var(--text3); font-size: 22px; cursor: pointer; line-height: 1; padding: 0; }
+.close-btn:hover { color: var(--text); }
+
+/* FORM */
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+.form-full { margin-bottom: 14px; }
+label { display: block; font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; color: var(--text3); margin-bottom: 6px; }
+input, select, textarea {
+  width: 100%;
+  padding: 9px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--accent-border); }
+textarea { resize: vertical; min-height: 90px; line-height: 1.7; }
+select option { background: var(--bg2); }
+.form-hint { font-size: 11px; color: var(--text3); margin-top: 5px; }
+
+/* DETAIL PANEL */
+.detail-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+.detail-item { background: var(--surface); border-radius: var(--radius); padding: 10px 12px; }
+.detail-item-label { font-family: var(--mono); font-size: 10px; color: var(--text3); letter-spacing: 0.08em; margin-bottom: 4px; }
+.detail-item-value { font-family: var(--mono); font-size: 15px; font-weight: 700; }
+.reason-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent-border);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  padding: 14px 16px;
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--text2);
+  margin-bottom: 12px;
+  white-space: pre-wrap;
+}
+
+/* REVIEW CARDS */
+.review-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  margin-bottom: 12px;
+}
+.review-section-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; margin-bottom: 6px; }
+.review-section-text { font-size: 13px; line-height: 1.7; color: var(--text2); margin-bottom: 12px; white-space: pre-wrap; }
+.stars { color: var(--gold); font-size: 14px; letter-spacing: 2px; }
+
+/* STAR INPUT */
+.star-input { display: flex; gap: 4px; }
+.star-btn { background: none; border: none; font-size: 22px; cursor: pointer; color: var(--text3); line-height: 1; padding: 2px; transition: color 0.1s; }
+.star-btn.lit { color: var(--gold); }
+
+/* PNL BAR */
+.pnl-bar-wrap { width: 60px; height: 3px; background: var(--border); border-radius: 2px; margin-top: 4px; }
+.pnl-bar-fill { height: 100%; border-radius: 2px; }
+
+/* FILTER BAR */
+.filter-bar { display: flex; gap: 8px; }
+.filter-btn { padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border); background: none; color: var(--text3); font-size: 12px; font-family: var(--sans); cursor: pointer; transition: all 0.15s; }
+.filter-btn.active { border-color: var(--accent-border); color: var(--accent); background: var(--accent-dim); }
+.filter-btn:hover:not(.active) { color: var(--text); border-color: var(--border2); }
+
+/* AI AREA */
+.ai-box {
+  background: linear-gradient(135deg, rgba(74,222,128,0.05), rgba(96,165,250,0.05));
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+.ai-box-header { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; color: var(--accent); margin-bottom: 6px; }
+.ai-result { font-size: 13px; line-height: 1.8; color: var(--text2); white-space: pre-wrap; }
+
+/* SCROLLBAR */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg2); }
+::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 3px; }
+
+/* RESPONSIVE */
+@media (max-width: 640px) {
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+  .form-row { grid-template-columns: 1fr; }
+  .detail-row { grid-template-columns: 1fr 1fr; }
+  .tabs-row { flex-direction: column; gap: 12px; align-items: flex-start; }
+  .header { padding: 0 16px; }
+  .container { padding: 20px 16px; }
+}
+
+/* TOAST */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  padding: 10px 16px;
+  font-size: 13px;
+  z-index: 999;
+  transform: translateY(60px);
+  opacity: 0;
+  transition: all 0.25s;
+  font-family: var(--mono);
+  color: var(--accent);
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+
+/* LOADING */
+.loading-screen {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  flex-direction: column;
+  gap: 16px;
+  font-family: var(--mono);
+}
+.loading-screen.gone { display: none; }
+.loader { width: 24px; height: 24px; border: 2px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="loading-screen" id="loading">
+  <div class="loader"></div>
+  <div style="font-size:11px;letter-spacing:0.1em;color:var(--text3)">載入中...</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<header class="header">
+  <div class="logo">
+    <div class="logo-dot"></div>
+    TRADE_JOURNAL
+  </div>
+  <div class="header-right">
+    <span class="sync-status" id="sync-status">● LOCAL</span>
+    <button class="btn btn-sm btn-ghost" onclick="exportData()" title="匯出 JSON">↓ 匯出</button>
+    <label class="btn btn-sm btn-ghost" style="cursor:pointer">↑ 匯入<input type="file" accept=".json" onchange="importData(event)" style="display:none"></label>
+  </div>
+</header>
+
+<div class="container">
+
+  <div class="stats-grid" id="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">TOTAL_POSITIONS</div>
+      <div class="stat-value neu" id="s-total">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">HOLDING</div>
+      <div class="stat-value pos" id="s-hold">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">TOTAL_PNL</div>
+      <div class="stat-value neu" id="s-pnl">—</div>
+      <div class="stat-sub" id="s-pnl-sub"></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">WIN_RATE</div>
+      <div class="stat-value neu" id="s-win">—</div>
+      <div class="stat-sub" id="s-win-sub"></div>
+    </div>
+  </div>
+
+  <div class="tabs-row">
+    <div>
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('list',this)">持倉列表</button>
+        <button class="tab" onclick="switchTab('review',this)">復盤筆記</button>
+      </div>
+    </div>
+    <button class="btn btn-accent" onclick="openAdd()">+ 新增交易</button>
+  </div>
+
+  <div id="tab-list">
+    <div style="margin-bottom:16px">
+      <div class="filter-bar">
+        <button class="filter-btn active" data-filter="" onclick="setFilter('',this)">全部</button>
+        <button class="filter-btn" data-filter="持有" onclick="setFilter('持有',this)">持有中</button>
+        <button class="filter-btn" data-filter="已賣出" onclick="setFilter('已賣出',this)">已賣出</button>
+        <button class="filter-btn" data-filter="觀察" onclick="setFilter('觀察',this)">觀察名單</button>
+      </div>
+    </div>
+    <div class="table-wrap" id="trade-table"></div>
+  </div>
+
+  <div id="tab-review" style="display:none">
+    <div id="review-list"></div>
+  </div>
+
+</div>
+
+<!-- ADD / EDIT MODAL -->
+<div class="overlay" id="modal-add">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-add-title">NEW_TRADE</div>
+      <button class="close-btn" onclick="closeOverlay('modal-add')">×</button>
+    </div>
+    <div class="form-row">
+      <div><label>TICKER *</label><input id="f-ticker" placeholder="2330 / NVDA / 00631L"></div>
+      <div><label>名稱</label><input id="f-name" placeholder="台積電 / Nvidia"></div>
+    </div>
+    <div class="form-row">
+      <div><label>買進日期 *</label><input type="date" id="f-date"></div>
+      <div><label>類型</label>
+        <select id="f-type">
+          <option>台股</option><option>美股</option><option>ETF</option>
+          <option>期貨/選擇權</option><option>加密貨幣</option><option>其他</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div><label>買進均價</label><input type="number" step="0.01" id="f-buy" placeholder="0.00"></div>
+      <div><label>目前價格 / 賣出價</label><input type="number" step="0.01" id="f-cur" placeholder="0.00"></div>
+    </div>
+    <div class="form-row">
+      <div><label>股數 / 張數 / 口數</label><input type="number" step="0.01" id="f-qty" placeholder="0"></div>
+      <div><label>狀態</label>
+        <select id="f-status" onchange="toggleSoldFields()">
+          <option value="持有">持有中</option>
+          <option value="觀察">觀察名單</option>
+          <option value="已賣出">已賣出</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-full">
+      <label>買進理由 * — 越詳細越好</label>
+      <textarea id="f-reason" placeholder="技術面：突破頸線 / MA均線方向&#10;基本面：本業成長 / 法說展望&#10;消息面：哪個催化劑&#10;目標價：___  停損點：___&#10;持有時間預期：___"></textarea>
+      <div class="form-hint">這是最重要的欄位。日後你感謝現在的自己。</div>
+    </div>
+    <div id="sold-fields" style="display:none">
+      <div class="form-full">
+        <label>賣出原因</label>
+        <textarea id="f-sell-reason" placeholder="達到目標價 / 停損紀律 / 看法改變 / 需要資金..."></textarea>
+      </div>
+    </div>
+    <div class="form-full">
+      <label>標籤 (逗號分隔)</label>
+      <input id="f-tags" placeholder="半導體, AI, 趨勢股, 法說利多">
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px">
+      <button class="btn" onclick="closeOverlay('modal-add')">取消</button>
+      <button class="btn btn-accent" onclick="saveTrade()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- DETAIL MODAL -->
+<div class="overlay" id="modal-detail">
+  <div class="modal" style="max-width:620px">
+    <div class="modal-header">
+      <div class="modal-title" id="d-title">TRADE_DETAIL</div>
+      <button class="close-btn" onclick="closeOverlay('modal-detail')">×</button>
+    </div>
+    <div id="d-body"></div>
+    <div style="display:flex;justify-content:space-between;margin-top:8px">
+      <button class="btn btn-sm btn-danger" id="d-del">刪除</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-sm" id="d-review-btn">✎ 寫復盤</button>
+        <button class="btn btn-sm btn-accent" id="d-edit">編輯</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- REVIEW MODAL -->
+<div class="overlay" id="modal-review">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">REVIEW_NOTE</div>
+      <button class="close-btn" onclick="closeOverlay('modal-review')">×</button>
+    </div>
+    <div id="r-trade-info" style="margin-bottom:16px;font-size:13px;color:var(--text2)"></div>
+    <div id="ai-review-area" style="display:none;margin-bottom:16px">
+      <button class="btn btn-sm" onclick="doAIReview()" id="ai-btn">✨ AI 幫我復盤分析</button>
+      <div class="ai-box" id="ai-box" style="display:none;margin-top:10px">
+        <div class="ai-box-header">AI_ANALYSIS</div>
+        <div class="ai-result" id="ai-result"></div>
+      </div>
+    </div>
+    <div class="form-full">
+      <label>做對的地方</label>
+      <textarea id="r-good" rows="3" placeholder="邏輯正確？進場時機？停損紀律？倉位管理？"></textarea>
+    </div>
+    <div class="form-full">
+      <label>可以改進的地方</label>
+      <textarea id="r-bad" rows="3" placeholder="太早/太晚進出場？情緒影響決策？沒設停損？"></textarea>
+    </div>
+    <div class="form-full">
+      <label>下次的教訓</label>
+      <textarea id="r-lesson" rows="3" placeholder="學到什麼？下次同類型交易要注意什麼？"></textarea>
+    </div>
+    <div class="form-full">
+      <label>這筆交易評分</label>
+      <div class="star-input" id="star-input">
+        <button class="star-btn" onclick="setStar(1)">★</button>
+        <button class="star-btn" onclick="setStar(2)">★</button>
+        <button class="star-btn" onclick="setStar(3)">★</button>
+        <button class="star-btn" onclick="setStar(4)">★</button>
+        <button class="star-btn" onclick="setStar(5)">★</button>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px">
+      <button class="btn" onclick="closeOverlay('modal-review')">取消</button>
+      <button class="btn btn-accent" onclick="saveReview()">儲存復盤</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// =================== DATA ===================
+const STORAGE_KEY = 'tradejrnl_v2';
+let db = { trades: [], reviews: [] };
+let editId = null;
+let reviewTradeId = null;
+let starScore = 0;
+let filterStatus = '';
+
+function loadLocal() {
+  try {
+    const s = localStorage.getItem(STORAGE_KEY);
+    if (s) db = JSON.parse(s);
+  } catch(e) {}
+}
+
+function saveLocal() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); } catch(e) {}
+}
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+// =================== STATS ===================
+function updateStats() {
+  const t = db.trades;
+  const held = t.filter(x => x.status === '持有');
+  const sold = t.filter(x => x.status === '已賣出');
+  let totalPnl = 0, hasPnl = false;
+  t.forEach(x => {
+    const p = calcPnL(x);
+    if (p !== null) { totalPnl += p; hasPnl = true; }
+  });
+  const wins = sold.filter(x => { const p = calcPnL(x); return p !== null && p > 0; }).length;
+
+  document.getElementById('s-total').textContent = t.length;
+  document.getElementById('s-hold').textContent = held.length;
+
+  const pnlEl = document.getElementById('s-pnl');
+  if (hasPnl) {
+    pnlEl.textContent = (totalPnl >= 0 ? '+' : '') + Math.round(totalPnl).toLocaleString();
+    pnlEl.className = 'stat-value ' + (totalPnl >= 0 ? 'pos' : 'neg');
+  } else {
+    pnlEl.textContent = '—'; pnlEl.className = 'stat-value neu';
+  }
+
+  const winEl = document.getElementById('s-win');
+  if (sold.length) {
+    winEl.textContent = Math.round(wins / sold.length * 100) + '%';
+    winEl.className = 'stat-value ' + (wins / sold.length >= 0.5 ? 'pos' : 'neg');
+    document.getElementById('s-win-sub').textContent = wins + '/' + sold.length + ' closed';
+  } else {
+    winEl.textContent = '—'; winEl.className = 'stat-value neu';
+  }
+}
+
+function calcPnL(t) {
+  if (!t.buyPrice || !t.curPrice || !t.qty) return null;
+  return (parseFloat(t.curPrice) - parseFloat(t.buyPrice)) * parseFloat(t.qty);
+}
+
+// =================== RENDER ===================
+function render() {
+  const list = filterStatus ? db.trades.filter(t => t.status === filterStatus) : db.trades;
+  const sorted = [...list].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+  const el = document.getElementById('trade-table');
+
+  if (!sorted.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">[ ]</div><p>' +
+      (filterStatus ? '沒有符合條件的交易' : '還沒有任何交易記錄<br><br>點右上角 + 新增交易 開始記錄') + '</p></div>';
+    updateStats(); return;
+  }
+
+  const rows = sorted.map(t => {
+    const pnl = calcPnL(t);
+    const pStr = pnl !== null ? (pnl >= 0 ? '+' : '') + Math.round(pnl).toLocaleString() : '—';
+    const pClass = pnl === null ? '' : (pnl >= 0 ? 'pos' : 'neg');
+    const bClass = t.status === '持有' ? 'badge-hold' : t.status === '觀察' ? 'badge-watch' : 'badge-sold';
+    const tags = t.tags ? t.tags.split(',').map(x => x.trim()).filter(Boolean) : [];
+    const hasReview = db.reviews.some(r => r.tradeId === t.id);
+    return `<tr>
+      <td>
+        <div class="ticker-cell">${esc(t.ticker)}</div>
+        <div class="name-cell">${esc(t.name||'')}</div>
+      </td>
+      <td><span class="badge ${bClass}">${t.status}</span></td>
+      <td style="font-family:var(--mono);font-size:12px">${t.date||'—'}</td>
+      <td style="font-size:12px;color:var(--text2)">${t.type||'—'}</td>
+      <td style="font-family:var(--mono);font-size:12px">${t.buyPrice ? Number(t.buyPrice).toLocaleString() : '—'}</td>
+      <td style="font-family:var(--mono);font-size:12px">${t.curPrice ? Number(t.curPrice).toLocaleString() : '—'}</td>
+      <td style="font-family:var(--mono);font-size:13px;font-weight:700" class="${pClass}">${pStr}</td>
+      <td>
+        <div>${tags.slice(0,2).map(g => `<span class="tag">${esc(g)}</span>`).join('')}</div>
+        ${hasReview ? '<div style="font-size:10px;color:var(--gold);margin-top:3px">★ 已復盤</div>' : ''}
+      </td>
+      <td><button class="btn btn-sm btn-ghost" onclick="openDetail('${t.id}')">查看</button></td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `<table>
+    <thead><tr>
+      <th>代號 / 名稱</th><th>狀態</th><th>日期</th><th>類型</th>
+      <th>買進價</th><th>現價</th><th>損益</th><th>標籤</th><th></th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+  updateStats();
+}
+
+function renderReviews() {
+  const el = document.getElementById('review-list');
+  if (!db.reviews.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">[ ? ]</div><p>還沒有復盤筆記<br><br>從持倉列表點「查看」→「寫復盤」開始</p></div>';
+    return;
+  }
+  const sorted = [...db.reviews].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  el.innerHTML = sorted.map(r => {
+    const t = db.trades.find(x => x.id === r.tradeId) || { ticker: '—', name: '' };
+    const pnl = calcPnL(t);
+    const pStr = pnl !== null ? (pnl >= 0 ? '+' : '') + Math.round(pnl).toLocaleString() : '';
+    const pClass = pnl !== null ? (pnl >= 0 ? 'pos' : 'neg') : '';
+    return `<div class="review-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-family:var(--mono);font-weight:700;font-size:15px">${esc(t.ticker)}</span>
+          <span style="color:var(--text3);font-size:12px">${esc(t.name||'')}</span>
+          ${pStr ? `<span class="badge ${t.status==='持有'?'badge-hold':'badge-sold'}" style="font-size:10px">${t.status}</span>` : ''}
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          ${pStr ? `<span class="neu" style="font-family:var(--mono);font-size:13px;font-weight:700" class="${pClass}">${pStr}</span>` : ''}
+          <span class="stars">${'★'.repeat(r.score||0)}</span>
+        </div>
+      </div>
+      ${r.good ? `<div class="review-section-label" style="color:var(--accent)">✓ 做對的</div><div class="review-section-text">${esc(r.good)}</div>` : ''}
+      ${r.bad ? `<div class="review-section-label" style="color:var(--red)">✗ 可改進</div><div class="review-section-text">${esc(r.bad)}</div>` : ''}
+      ${r.lesson ? `<div class="review-section-label" style="color:var(--gold)">◈ 教訓</div><div class="review-section-text">${esc(r.lesson)}</div>` : ''}
+      <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:8px">${new Date(r.createdAt||Date.now()).toLocaleDateString('zh-TW')}</div>
+    </div>`;
+  }).join('');
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/\n/g,'<br>');
+}
+
+// =================== TABS / FILTER ===================
+function switchTab(name, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-list').style.display = name === 'list' ? '' : 'none';
+  document.getElementById('tab-review').style.display = name === 'review' ? '' : 'none';
+  if (name === 'review') renderReviews();
+}
+
+function setFilter(v, el) {
+  filterStatus = v;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  render();
+}
+
+// =================== ADD / EDIT ===================
+function openAdd(id) {
+  editId = id || null;
+  const t = id ? db.trades.find(x => x.id === id) : null;
+  document.getElementById('modal-add-title').textContent = id ? 'EDIT_TRADE' : 'NEW_TRADE';
+  document.getElementById('f-ticker').value = t?.ticker || '';
+  document.getElementById('f-name').value = t?.name || '';
+  document.getElementById('f-date').value = t?.date || new Date().toISOString().slice(0,10);
+  document.getElementById('f-type').value = t?.type || '台股';
+  document.getElementById('f-buy').value = t?.buyPrice || '';
+  document.getElementById('f-cur').value = t?.curPrice || '';
+  document.getElementById('f-qty').value = t?.qty || '';
+  document.getElementById('f-status').value = t?.status || '持有';
+  document.getElementById('f-reason').value = t?.reason || '';
+  document.getElementById('f-sell-reason').value = t?.sellReason || '';
+  document.getElementById('f-tags').value = t?.tags || '';
+  toggleSoldFields();
+  openOverlay('modal-add');
+}
+
+function toggleSoldFields() {
+  document.getElementById('sold-fields').style.display =
+    document.getElementById('f-status').value === '已賣出' ? '' : 'none';
+}
+
+function saveTrade() {
+  const ticker = document.getElementById('f-ticker').value.trim();
+  if (!ticker) { toast('請填入股票代號'); return; }
+  const t = {
+    id: editId || uid(),
+    ticker: ticker.toUpperCase(),
+    name: document.getElementById('f-name').value.trim(),
+    date: document.getElementById('f-date').value,
+    type: document.getElementById('f-type').value,
+    buyPrice: document.getElementById('f-buy').value,
+    curPrice: document.getElementById('f-cur').value,
+    qty: document.getElementById('f-qty').value,
+    status: document.getElementById('f-status').value,
+    reason: document.getElementById('f-reason').value.trim(),
+    sellReason: document.getElementById('f-sell-reason').value.trim(),
+    tags: document.getElementById('f-tags').value.trim(),
+    updatedAt: new Date().toISOString()
+  };
+  if (editId) {
+    const i = db.trades.findIndex(x => x.id === editId);
+    db.trades[i] = t;
+  } else {
+    db.trades.unshift(t);
+  }
+  saveLocal();
+  closeOverlay('modal-add');
+  render();
+  toast(editId ? '已更新' : '已新增 ' + t.ticker);
+}
+
+// =================== DETAIL ===================
+function openDetail(id) {
+  const t = db.trades.find(x => x.id === id);
+  if (!t) return;
+  const pnl = calcPnL(t);
+  const tags = t.tags ? t.tags.split(',').map(x => x.trim()).filter(Boolean) : [];
+  const r = db.reviews.find(x => x.tradeId === id);
+  const bClass = t.status === '持有' ? 'badge-hold' : t.status === '觀察' ? 'badge-watch' : 'badge-sold';
+
+  let html = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+      <span style="font-family:var(--mono);font-size:20px;font-weight:700">${esc(t.ticker)}</span>
+      <span style="color:var(--text2)">${esc(t.name||'')}</span>
+      <span class="badge ${bClass}">${t.status}</span>
+      <span style="font-family:var(--mono);font-size:11px;color:var(--text3)">${t.type||''}</span>
+    </div>
+    <div class="detail-row">
+      <div class="detail-item"><div class="detail-item-label">BUY_DATE</div><div class="detail-item-value" style="font-size:13px">${t.date||'—'}</div></div>
+      <div class="detail-item"><div class="detail-item-label">BUY_PRICE</div><div class="detail-item-value ${pnl !== null ? '' : 'neu'}">${t.buyPrice ? Number(t.buyPrice).toLocaleString() : '—'}</div></div>
+      <div class="detail-item"><div class="detail-item-label">CUR_PRICE</div><div class="detail-item-value">${t.curPrice ? Number(t.curPrice).toLocaleString() : '—'}</div></div>
+      <div class="detail-item"><div class="detail-item-label">QTY</div><div class="detail-item-value neu">${t.qty||'—'}</div></div>
+      <div class="detail-item" style="grid-column:span 2"><div class="detail-item-label">PNL</div><div class="detail-item-value ${pnl===null?'neu':(pnl>=0?'pos':'neg')}">${pnl !== null ? (pnl>=0?'+':'')+Math.round(pnl).toLocaleString() : '—'}</div></div>
+    </div>
+    <div style="margin-bottom:4px;font-family:var(--mono);font-size:10px;letter-spacing:0.1em;color:var(--text3)">BUY_REASON</div>
+    <div class="reason-box">${esc(t.reason||'（未填寫）')}</div>
+    ${t.sellReason ? `<div style="margin-bottom:4px;font-family:var(--mono);font-size:10px;letter-spacing:0.1em;color:var(--text3)">SELL_REASON</div><div class="reason-box" style="border-left-color:rgba(248,113,113,0.4)">${esc(t.sellReason)}</div>` : ''}
+    ${tags.length ? `<div style="margin-bottom:16px">${tags.map(g=>`<span class="tag">${esc(g)}</span>`).join('')}</div>` : ''}
+    ${r ? `<div class="ai-box"><div class="ai-box-header">REVIEW — ${'★'.repeat(r.score||0)}</div><div class="ai-result" style="font-size:12px">${r.lesson ? esc(r.lesson) : (r.good||r.bad ? '有復盤筆記' : '')}</div></div>` : ''}
+  `;
+
+  document.getElementById('d-title').textContent = t.ticker + (t.name ? ' / ' + t.name : '');
+  document.getElementById('d-body').innerHTML = html;
+  document.getElementById('d-edit').onclick = () => { closeOverlay('modal-detail'); openAdd(id); };
+  document.getElementById('d-del').onclick = () => deleteTrade(id);
+  document.getElementById('d-review-btn').textContent = r ? '✎ 查看/編輯復盤' : '✎ 寫復盤';
+  document.getElementById('d-review-btn').onclick = () => { closeOverlay('modal-detail'); openReview(id); };
+  openOverlay('modal-detail');
+}
+
+function deleteTrade(id) {
+  if (!confirm('確定要刪除這筆記錄？')) return;
+  db.trades = db.trades.filter(x => x.id !== id);
+  db.reviews = db.reviews.filter(x => x.tradeId !== id);
+  saveLocal(); closeOverlay('modal-detail'); render(); toast('已刪除');
+}
+
+// =================== REVIEW ===================
+function openReview(id) {
+  reviewTradeId = id;
+  const t = db.trades.find(x => x.id === id);
+  const r = db.reviews.find(x => x.tradeId === id);
+  const pnl = calcPnL(t);
+  document.getElementById('r-trade-info').innerHTML =
+    `<span style="font-family:var(--mono);font-weight:700">${esc(t.ticker)}</span> ${esc(t.name||'')}` +
+    (pnl !== null ? ` &nbsp;<span class="${pnl>=0?'pos':'neg'}" style="font-family:var(--mono)">${pnl>=0?'+':''}${Math.round(pnl).toLocaleString()}</span>` : '');
+  document.getElementById('r-good').value = r?.good || '';
+  document.getElementById('r-bad').value = r?.bad || '';
+  document.getElementById('r-lesson').value = r?.lesson || '';
+  starScore = r?.score || 0;
+  renderStars();
+  document.getElementById('ai-review-area').style.display = t.reason ? '' : 'none';
+  document.getElementById('ai-box').style.display = 'none';
+  document.getElementById('ai-result').textContent = '';
+  openOverlay('modal-review');
+}
+
+function setStar(n) { starScore = n; renderStars(); }
+function renderStars() {
+  document.querySelectorAll('#star-input .star-btn').forEach((b, i) => {
+    b.classList.toggle('lit', i < starScore);
+  });
+}
+
+function saveReview() {
+  const r = {
+    id: uid(),
+    tradeId: reviewTradeId,
+    good: document.getElementById('r-good').value.trim(),
+    bad: document.getElementById('r-bad').value.trim(),
+    lesson: document.getElementById('r-lesson').value.trim(),
+    score: starScore,
+    createdAt: new Date().toISOString()
+  };
+  const i = db.reviews.findIndex(x => x.tradeId === reviewTradeId);
+  if (i >= 0) db.reviews[i] = r; else db.reviews.push(r);
+  saveLocal();
+  closeOverlay('modal-review');
+  render();
+  toast('復盤已儲存');
+}
+
+// =================== AI REVIEW ===================
+async function doAIReview() {
+  const t = db.trades.find(x => x.id === reviewTradeId);
+  if (!t) return;
+  const btn = document.getElementById('ai-btn');
+  btn.disabled = true; btn.textContent = '分析中...';
+  document.getElementById('ai-box').style.display = '';
+  document.getElementById('ai-result').textContent = '正在分析...';
+
+  const pnl = calcPnL(t);
+  const prompt = `你是一位資深的股票交易教練，請幫我復盤以下這筆交易：
+
+股票代號：${t.ticker} ${t.name||''}
+類型：${t.type||''}
+買進日期：${t.date||''}
+買進均價：${t.buyPrice||'未填'}
+現價/賣出價：${t.curPrice||'未填'}
+股數：${t.qty||'未填'}
+損益：${pnl !== null ? (pnl>=0?'+':'')+Math.round(pnl) : '未知'}
+狀態：${t.status}
+買進理由：${t.reason||'未填寫'}
+${t.sellReason ? '賣出原因：'+t.sellReason : ''}
+
+請用繁體中文，以具體、直接的方式給我復盤建議。分三個部分：
+1. 這筆交易邏輯的優缺點分析
+2. 可以改進的地方
+3. 一句話的重點教訓
+
+不要廢話，直接切入重點。`;
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await resp.json();
+    const text = data.content?.map(c => c.text||'').join('') || '無法取得回覆';
+    document.getElementById('ai-result').textContent = text;
+  } catch(e) {
+    document.getElementById('ai-result').textContent = '無法連接 AI，請稍後再試。';
+  }
+  btn.disabled = false; btn.textContent = '✨ AI 幫我復盤分析';
+}
+
+// =================== IMPORT / EXPORT ===================
+function exportData() {
+  const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'trade-journal-' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  toast('已匯出');
+}
+
+function importData(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const imported = JSON.parse(ev.target.result);
+      if (!imported.trades) { toast('格式不正確'); return; }
+      // Merge
+      imported.trades.forEach(t => {
+        if (!db.trades.find(x => x.id === t.id)) db.trades.push(t);
+      });
+      imported.reviews?.forEach(r => {
+        if (!db.reviews.find(x => x.id === r.id)) db.reviews.push(r);
+      });
+      saveLocal();
+      render();
+      toast('匯入完成！共 ' + imported.trades.length + ' 筆');
+    } catch(err) { toast('匯入失敗'); }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+// =================== OVERLAY ===================
+function openOverlay(id) { document.getElementById(id).classList.add('open'); }
+function closeOverlay(id) { document.getElementById(id).classList.remove('open'); }
+
+document.querySelectorAll('.overlay').forEach(el => {
+  el.addEventListener('click', e => { if (e.target === el) closeOverlay(el.id); });
+});
+
+// =================== TOAST ===================
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// =================== INIT ===================
+loadLocal();
+render();
+document.getElementById('loading').classList.add('gone');
+
+const ss = document.getElementById('sync-status');
+ss.textContent = '● LOCAL';
+ss.className = 'sync-status ok';
+</script>
+</body>
+</html>

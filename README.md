@@ -1,1 +1,1 @@
-# my-trade-journal
+# Peter's trade journal
